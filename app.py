@@ -290,6 +290,75 @@ def unsubscribe_route():
         asyncio.run(delete_subscription(data["endpoint"]))
     return jsonify({"status": "unsubscribed"})
 
+@app.route("/api/generate-digest", methods=["POST"])
+def generate_digest_now():
+    """Generate a fresh digest on demand (for first load)."""
+    data = request.json or {}
+    location = data.get("location", "National")
+    state = data.get("state")
+
+    async def run():
+        national, local = await fetch_news(location, state)
+        if not national and not local:
+            return None
+        digest = await generate_digest(national, local, location)
+        await save_digest(location, json.dumps(digest))
+        return digest
+
+    digest = asyncio.run(run())
+    if not digest:
+        return jsonify({"error": "Could not fetch news"}), 503
+    return jsonify({"id": -1, "location": location,
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "content": digest})
+
+
+@app.route("/api/ask", methods=["POST"])
+def ask_question():
+    """Answer a civic question using Groq/Llama."""
+    data = request.json or {}
+    question = data.get("question", "").strip()
+    location = data.get("location", "National")
+
+    if not question:
+        return jsonify({"error": "No question provided"}), 400
+
+    async def run():
+        # Classify first
+        classify_result = await groq_chat(
+            system=(
+                "You are a classifier. Is this a civic or political question? "
+                "Civic topics: elections, voting, laws, government, policy, legislation, "
+                "civic rights, national security, public officials, political processes. "
+                "Respond ONLY with valid JSON: {\"is_civic\": true/false, \"confidence\": 0.0-1.0}"
+            ),
+            user_msg=f"Classify: {question}",
+            max_tokens=60,
+        )
+        try:
+            result = json.loads(classify_result.replace("```json","").replace("```","").strip())
+            if not result["is_civic"] and result["confidence"] > 0.75:
+                return {"answer": None, "not_civic": True}
+        except Exception:
+            pass
+
+        # Answer
+        answer = await groq_chat(
+            system=(
+                "You are a neutral civic education assistant. Answer political and civic questions factually. "
+                "Be strictly neutral — no bias, no opinion. Cite sources where possible (Reuters, AP, NPR, PBS, BBC). "
+                "Present multiple perspectives on contested issues. Never tell people how to vote or what to think. "
+                f"The user is located in: {location}. Prioritize relevant local or state info when applicable."
+            ),
+            user_msg=question,
+            max_tokens=500,
+        )
+        return {"answer": answer, "not_civic": False}
+
+    result = asyncio.run(run())
+    return jsonify(result)
+
+
 @app.route("/health")
 def health():
     return jsonify({"status": "ok"})
