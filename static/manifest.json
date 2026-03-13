@@ -1,0 +1,12 @@
+{
+  "name": "CivicBot — Voter Education",
+  "short_name": "CivicBot",
+  "description": "Neutral civic news and voter education, delivered to you.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0f",
+  "theme_color": "#B22234",
+  "orientation": "portrait",
+  "icons": [],
+  "categories": ["news", "education", "politics"]
+}

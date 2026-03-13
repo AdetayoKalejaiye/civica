@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#3C3B6E" />
+  <meta name="description" content="Neutral civic news and voter education, delivered to you." />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>CivicBot — Voter Education</title>
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="stylesheet" href="/static/css/app.css" />
+  <!-- Hidden element to pass VAPID key to JS -->
+  <div id="vapid-key" data-key="{{ vapid_public_key }}" style="display:none"></div>
+</head>
+<body>
+
+  <!-- Offline Banner -->
+  <div id="offline-banner" class="hidden">
+    📡 You're offline — showing cached updates
+  </div>
+
+  <!-- Header -->
+  <header>
+    <div class="header-stripe"></div>
+    <div class="header-inner">
+      <div class="header-logo">
+        <span>CIVIC</span>BOT
+      </div>
+      <div class="header-actions">
+        <button class="btn-icon" id="location-btn">📍 Location</button>
+        <button class="btn-icon" id="notify-btn">🔔 Notify me</button>
+        <button class="btn-icon" id="dark-toggle">🌙</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Subheader -->
+  <div class="subheader">
+    📰 Civic updates for &nbsp;<span id="current-location">National</span>
+  </div>
+
+  <!-- Main Feed -->
+  <main>
+    <div id="feed"></div>
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    Sources: Reuters · AP News · NPR · PBS · BBC · Politico · The Hill &nbsp;|&nbsp; Updates every 48hrs &nbsp;|&nbsp; No political bias
+  </footer>
+
+  <!-- Location Modal -->
+  <div class="modal-overlay" id="location-modal">
+    <div class="modal">
+      <h2>Your Location</h2>
+      <p>Get local and state civic news alongside national updates.</p>
+
+      <label for="state-select">State</label>
+      <select id="state-select">
+        <option value="">— National only —</option>
+      </select>
+
+      <label for="city-input">City (optional)</label>
+      <input type="text" id="city-input" placeholder="e.g. Denver" autocomplete="off" />
+
+      <div class="modal-actions">
+        <button class="btn-secondary" id="close-modal">Cancel</button>
+        <button class="btn-primary" id="save-location">Save Location</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
