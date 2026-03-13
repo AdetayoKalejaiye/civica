@@ -25,13 +25,14 @@ TWILIO_ACCOUNT_SID  = os.getenv("TWILIO_ACCOUNT_SID")
 TWILIO_AUTH_TOKEN   = os.getenv("TWILIO_AUTH_TOKEN")
 TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER")
 GROQ_API_KEY        = os.getenv("GROQ_API_KEY")
-BRAVE_API_KEY       = os.getenv("BRAVE_API_KEY")
+GOOGLE_API_KEY      = os.getenv("GOOGLE_API_KEY")
+GOOGLE_CX           = os.getenv("GOOGLE_CX")
 NEWS_API_KEY        = os.getenv("NEWS_API_KEY")
 ADMIN_KEY           = os.getenv("ADMIN_KEY", "change-me")
 QUESTIONS_PER_DAY   = int(os.getenv("QUESTIONS_PER_DAY", "5"))
 
 GROQ_URL  = "https://api.groq.com/openai/v1/chat/completions"
-BRAVE_URL = "https://api.search.brave.com/res/v1/web/search"
+GOOGLE_URL = "https://www.googleapis.com/customsearch/v1"
 
 TRUSTED_SOURCES    = "reuters.com,apnews.com,npr.org,pbs.org,bbc.com,politico.com,thehill.com"
 TRUSTED_SOURCE_IDS = "reuters,associated-press,npr,bbc-news,politico"
@@ -209,22 +210,21 @@ async def classify_message(message):
         return True, 0.5  # Fail open
 
 
-async def brave_search(query, count=5):
-    """Fetch top web results from Brave Search for Q&A context."""
-    if not BRAVE_API_KEY:
+async def google_search(query, count=5):
+    """Fetch top web results from Google Custom Search for Q&A context."""
+    if not GOOGLE_API_KEY or not GOOGLE_CX:
         return []
     try:
         async with httpx.AsyncClient(timeout=10) as client:
-            r = await client.get(BRAVE_URL,
-                headers={"Accept": "application/json", "X-Subscription-Token": BRAVE_API_KEY},
-                params={"q": query, "count": count, "search_lang": "en",
-                        "result_filter": "web", "freshness": "pw"},
+            r = await client.get(GOOGLE_URL,
+                params={"key": GOOGLE_API_KEY, "cx": GOOGLE_CX,
+                        "q": query, "num": count, "dateRestrict": "w1"},
             )
-            results = r.json().get("web", {}).get("results", [])
-            return [{"title": x["title"], "snippet": x.get("description", ""), "url": x["url"]}
-                    for x in results]
+            items = r.json().get("items", [])
+            return [{"title": x["title"], "snippet": x.get("snippet", ""), "url": x["link"]}
+                    for x in items]
     except Exception as e:
-        logger.error(f"Brave search error: {e}")
+        logger.error(f"Google search error: {e}")
         return []
 
 
@@ -287,7 +287,7 @@ async def answer_question(question, location):
 
     # Search for current context using Brave
     search_query = f"{question} {location} site:reuters.com OR site:apnews.com OR site:npr.org OR site:bbc.com"
-    results = await brave_search(search_query)
+    results = await google_search(search_query)
 
     context = ""
     if results:
