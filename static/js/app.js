@@ -160,6 +160,16 @@ function renderUpdate(update) {
   `;
 }
 
+function renderGenerating() {
+  return `
+    <div class="empty-state">
+      <div class="empty-icon">⏳</div>
+      <h3>Generating your first digest...</h3>
+      <p>Fetching today's civic news. This takes about 10 seconds.</p>
+    </div>
+  `;
+}
+
 function renderEmpty() {
   return `
     <div class="empty-state">
@@ -191,12 +201,30 @@ async function renderUpdates() {
   const updates = await fetchUpdates();
 
   if (!updates || updates.length === 0) {
+    // Auto-generate first digest
+    feed.innerHTML = renderGenerating();
+    try {
+      const res = await fetch("/api/generate-digest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ location: STATE.location, state: STATE.state }),
+      });
+      if (res.ok) {
+        const fresh = await res.json();
+        await saveUpdatesOffline([fresh]);
+        feed.innerHTML = renderUpdate(fresh);
+        return;
+      }
+    } catch (e) {
+      console.error("Auto-generate failed:", e);
+    }
     feed.innerHTML = renderEmpty();
     return;
   }
 
   feed.innerHTML = updates.map(renderUpdate).join("");
 }
+
 
 // ─── LOCATION MODAL ───────────────────────────────────────────────────────────
 
@@ -306,6 +334,99 @@ async function handleNotifyButton() {
   }
 }
 
+// ─── Q&A ──────────────────────────────────────────────────────────────────────
+
+const MAX_QUESTIONS = 5;
+
+function getQAState() {
+  const today = new Date().toDateString();
+  const stored = JSON.parse(localStorage.getItem("civic_qa") || "{}");
+  if (stored.date !== today) return { date: today, count: 0, history: [] };
+  return stored;
+}
+
+function saveQAState(state) {
+  localStorage.setItem("civic_qa", JSON.stringify(state));
+}
+
+function updateQACounter() {
+  const qa = getQAState();
+  const remaining = MAX_QUESTIONS - qa.count;
+  document.getElementById("qa-counter").textContent = `${remaining}/${MAX_QUESTIONS} questions left today`;
+  document.getElementById("qa-input").disabled = remaining <= 0;
+  document.getElementById("qa-submit").disabled = remaining <= 0;
+  if (remaining <= 0) {
+    document.getElementById("qa-input").placeholder = "Daily limit reached. Come back tomorrow.";
+  }
+}
+
+function appendQAMessage(role, text) {
+  const log = document.getElementById("qa-log");
+  const msg = document.createElement("div");
+  msg.className = `qa-msg qa-${role}`;
+  msg.innerHTML = `<span class="qa-role">${role === "user" ? "You" : "CivicBot"}</span><p>${text}</p>`;
+  log.appendChild(msg);
+  log.scrollTop = log.scrollHeight;
+}
+
+function renderQAHistory() {
+  const qa = getQAState();
+  const log = document.getElementById("qa-log");
+  log.innerHTML = "";
+  for (const msg of qa.history) {
+    appendQAMessage(msg.role, msg.text);
+  }
+}
+
+async function submitQuestion() {
+  const input = document.getElementById("qa-input");
+  const question = input.value.trim();
+  if (!question) return;
+
+  const qa = getQAState();
+  if (qa.count >= MAX_QUESTIONS) return;
+
+  input.value = "";
+  appendQAMessage("user", question);
+
+  // Show typing indicator
+  const log = document.getElementById("qa-log");
+  const typing = document.createElement("div");
+  typing.className = "qa-msg qa-bot qa-typing";
+  typing.innerHTML = `<span class="qa-role">CivicBot</span><p>⏳ Thinking...</p>`;
+  log.appendChild(typing);
+  log.scrollTop = log.scrollHeight;
+
+  try {
+    const res = await fetch("/api/ask", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question, location: STATE.location }),
+    });
+    const data = await res.json();
+    typing.remove();
+
+    let answer;
+    if (data.not_civic) {
+      answer = "❌ I can only answer civic and political questions — things like elections, legislation, government processes, voting rights, and public policy.";
+    } else {
+      answer = data.answer || "Sorry, I couldn't find a clear answer. Try rephrasing.";
+      // Count only real civic questions
+      qa.count += 1;
+    }
+
+    appendQAMessage("bot", answer);
+    qa.history.push({ role: "user", text: question }, { role: "bot", text: answer });
+    if (qa.history.length > 20) qa.history = qa.history.slice(-20);
+    saveQAState(qa);
+    updateQACounter();
+
+  } catch (e) {
+    typing.remove();
+    appendQAMessage("bot", "Sorry, something went wrong. Please try again.");
+  }
+}
+
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 
 async function init() {
@@ -324,7 +445,7 @@ async function init() {
     if (existing) {
       STATE.subscription = existing;
       const btn = document.getElementById("notify-btn");
-      btn.textContent = "✅ Notifications on";
+      btn.textContent = "Notifications on";
       btn.classList.add("active");
       btn.disabled = true;
     }
@@ -342,6 +463,14 @@ async function init() {
   document.getElementById("close-modal").addEventListener("click", closeLocationModal);
   document.getElementById("location-modal").addEventListener("click", (e) => {
     if (e.target === e.currentTarget) closeLocationModal();
+  });
+
+  // Q&A
+  renderQAHistory();
+  updateQACounter();
+  document.getElementById("qa-submit").addEventListener("click", submitQuestion);
+  document.getElementById("qa-input").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submitQuestion(); }
   });
 
   // Load updates
