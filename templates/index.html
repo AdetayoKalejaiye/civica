@@ -7,7 +7,6 @@
   <meta name="description" content="Neutral civic news and voter education, delivered to you." />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <title>Civica</title>
   <link rel="manifest" href="/manifest.json" />
   <link rel="stylesheet" href="/static/css/app.css" />
   <!-- Hidden element to pass VAPID key to JS -->
@@ -49,6 +48,19 @@
   <footer>
     Sources: Reuters · AP News · NPR · PBS · BBC · Politico · The Hill &nbsp;|&nbsp; Updates every 48hrs &nbsp;|&nbsp; No political bias
   </footer>
+
+  <!-- Q&A Panel -->
+  <div id="qa-panel">
+    <div id="qa-header">
+      <span>🗳️ Ask a Civic Question</span>
+      <span id="qa-counter">5/5 questions left today</span>
+    </div>
+    <div id="qa-log"></div>
+    <div id="qa-input-row">
+      <input type="text" id="qa-input" placeholder="e.g. How does the electoral college work?" autocomplete="off" />
+      <button id="qa-submit">Ask</button>
+    </div>
+  </div>
 
   <!-- Location Modal -->
   <div class="modal-overlay" id="location-modal">
