@@ -150,7 +150,7 @@ async def groq_chat(system, user_msg, max_tokens=800):
         r = await client.post(GROQ_URL,
             headers={"Authorization": f"Bearer {GROQ_API_KEY}", "Content-Type": "application/json"},
             json={
-                "model": "llama3-70b-8192",
+                "model": "llama-3.3-70b-versatile",
                 "messages": [{"role": "system", "content": system},
                               {"role": "user", "content": user_msg}],
                 "max_tokens": max_tokens, "temperature": 0.3,
@@ -357,6 +357,9 @@ def ask_question():
 
     result = asyncio.run(run())
     return jsonify(result)
+  except Exception as e:
+    logger.error(f"/api/ask error: {e}", exc_info=True)
+    return jsonify({"error": str(e)}), 500
 
 
 @app.route("/health")
