@@ -355,11 +355,12 @@ def ask_question():
         )
         return {"answer": answer, "not_civic": False}
 
-    result = asyncio.run(run())
-    return jsonify(result)
-  except Exception as e:
-    logger.error(f"/api/ask error: {e}", exc_info=True)
-    return jsonify({"error": str(e)}), 500
+    try:
+        result = asyncio.run(run())
+        return jsonify(result)
+    except Exception as e:
+        logger.error(f"/api/ask error: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/health")
