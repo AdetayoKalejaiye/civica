@@ -23,8 +23,11 @@ self.addEventListener("activate", (e) => {
 self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
 
+  // Never cache POST requests
+  if (e.request.method !== "GET") return;
+
   if (url.pathname.startsWith("/api/")) {
-    // Network first for API — fall back to cache
+    // Network first for API GET requests — fall back to cache
     e.respondWith(
       fetch(e.request)
         .then((res) => {
